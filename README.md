@@ -20,6 +20,12 @@ An interactive web application for piano training, built with Next.js, TypeScrip
 - Zod for form validation
 - Lucide React for icons
 
+## AI Tools
+
+- OpenAI for generating music scores
+- Cursor for logic coding
+- Bolt for UI
+
 ## Getting Started
 
 1. Clone the repository:

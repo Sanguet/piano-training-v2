@@ -99,7 +99,7 @@ export function VirtualPiano({
 
         midiInputs = WebMidi.inputs;
         midiInputs.forEach((input) => {
-          input.addListener("noteon", "all", (e: NoteMessageEvent) => {
+          input.addListener("noteon", (e) => {
             try {
               if (e.note && e.note.name && e.note.octave !== undefined) {
                 const noteName = e.note.name;

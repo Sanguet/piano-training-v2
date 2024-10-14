@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import NoteRecognition from "@/components/exercises/note-recognition";
@@ -43,25 +43,36 @@ export default function ExercisesPage() {
     { type: "scales", title: "Scales", icon: PianoIcon },
   ];
 
-  const handleExerciseComplete = (
-    correctAnswers: number,
-    wrongAnswers: number
-  ) => {
-    const newEntry: LeaderboardEntry = {
-      id: Date.now().toString(),
-      score: correctAnswers,
-      wrongAnswers,
-      date: new Date().toISOString(),
-    };
-    const updatedLeaderboard = [...leaderboard, newEntry]
-      .sort((a, b) => b.score - a.score)
-      .slice(0, 10);
-    setLeaderboard(updatedLeaderboard);
-    localStorage.setItem(
-      "noteRecognitionLeaderboard",
-      JSON.stringify(updatedLeaderboard)
-    );
-  };
+  const handleExerciseComplete = useCallback(
+    (correctAnswers: number, wrongAnswers: number) => {
+      const newEntry: LeaderboardEntry = {
+        id: Date.now().toString(),
+        score: correctAnswers,
+        wrongAnswers,
+        date: new Date().toISOString(),
+      };
+      const updatedLeaderboard = [...leaderboard, newEntry]
+        .sort((a, b) => {
+          if (b.score !== a.score) {
+            return b.score - a.score; // Sort by score descending
+          } else {
+            return a.wrongAnswers - b.wrongAnswers; // If scores are equal, sort by wrong answers ascending
+          }
+        })
+        .slice(0, 10);
+      setLeaderboard(updatedLeaderboard);
+      localStorage.setItem(
+        "noteRecognitionLeaderboard",
+        JSON.stringify(updatedLeaderboard)
+      );
+    },
+    [leaderboard]
+  );
+
+  const handleResetLeaderboard = useCallback(() => {
+    setLeaderboard([]);
+    localStorage.removeItem("noteRecognitionLeaderboard");
+  }, []);
 
   const renderExercise = () => {
     switch (selectedExercise) {
@@ -117,7 +128,10 @@ export default function ExercisesPage() {
           </div>
           {selectedExercise === "noteRecognition" && (
             <div className="md:w-1/3">
-              <Leaderboard entries={leaderboard} />
+              <Leaderboard
+                entries={leaderboard}
+                onReset={handleResetLeaderboard}
+              />
             </div>
           )}
         </div>

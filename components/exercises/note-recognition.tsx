@@ -244,12 +244,20 @@ const NoteRecognition: React.FC<NoteRecognitionProps> = ({
     [checkAnswer]
   );
 
-  const memoizedVirtualPiano = useMemo(
-    () => (
-      <VirtualPiano onNotePlay={handleNotePlay} startNote="C2" endNote="C6" />
-    ),
-    [handleNotePlay]
-  );
+  const memoizedVirtualPiano = useMemo(() => {
+    const pianoRange =
+      clefType === "treble"
+        ? { startNote: "C4", endNote: "C6" }
+        : { startNote: "C2", endNote: "C4" };
+
+    return (
+      <VirtualPiano
+        onNotePlay={handleNotePlay}
+        startNote={pianoRange.startNote}
+        endNote={pianoRange.endNote}
+      />
+    );
+  }, [handleNotePlay, clefType]);
 
   return (
     <Card className="w-full max-w-5xl mx-auto">
@@ -284,55 +292,51 @@ const NoteRecognition: React.FC<NoteRecognitionProps> = ({
           </div>
         ) : (
           <>
-            {isExerciseActive && countdown === 0 && (
-              <>
-                <div className="text-center text-xl font-semibold">
-                  Time remaining: {timer} seconds
-                </div>
+            <div className="text-center text-xl font-semibold">
+              Time remaining: {timer} seconds
+            </div>
+            <div
+              ref={containerRef}
+              id="vexflow-container"
+              className="flex justify-center overflow-x-auto"
+            ></div>
+            <div className="w-full overflow-x-auto py-4">
+              <div className="max-w-[500px] mx-auto">
+                <Button onClick={playNote} className="w-full mb-4">
+                  Play Note
+                </Button>
+                {memoizedVirtualPiano}
+              </div>
+            </div>
+            <p className="text-center text-lg font-semibold">
+              Score: {score} | Wrong Answers: {wrongAnswers}
+            </p>
+            <div
+              className={`transition-opacity duration-300 ${
+                isFeedbackVisible ? "opacity-100" : "opacity-0"
+              }`}
+            >
+              {feedback.status && (
                 <div
-                  ref={containerRef}
-                  id="vexflow-container"
-                  className="flex justify-center overflow-x-auto"
-                ></div>
-                <div className="w-full overflow-x-auto py-4">
-                  <div className="min-w-[700px]">
-                    <Button onClick={playNote} className="w-full mb-4">
-                      Play Note
-                    </Button>
-                    {memoizedVirtualPiano}
-                  </div>
-                </div>
-                <p className="text-center text-lg font-semibold">
-                  Score: {score} | Wrong Answers: {wrongAnswers}
-                </p>
-                <div
-                  className={`transition-opacity duration-300 ${
-                    isFeedbackVisible ? "opacity-100" : "opacity-0"
+                  className={`text-center p-2 rounded ${
+                    feedback.status === "correct"
+                      ? "bg-green-100 text-green-800"
+                      : "bg-red-100 text-red-800"
                   }`}
                 >
-                  {feedback.status && (
-                    <div
-                      className={`text-center p-2 rounded ${
-                        feedback.status === "correct"
-                          ? "bg-green-100 text-green-800"
-                          : "bg-red-100 text-red-800"
-                      }`}
-                    >
-                      <span className="flex items-center justify-center">
-                        {feedback.status === "correct" ? (
-                          <CheckCircle2 className="mr-2 h-4 w-4" />
-                        ) : feedback.message.includes("higher") ? (
-                          <ArrowUp className="mr-2 h-4 w-4" />
-                        ) : (
-                          <ArrowDown className="mr-2 h-4 w-4" />
-                        )}
-                        {feedback.message}
-                      </span>
-                    </div>
-                  )}
+                  <span className="flex items-center justify-center">
+                    {feedback.status === "correct" ? (
+                      <CheckCircle2 className="mr-2 h-4 w-4" />
+                    ) : feedback.message.includes("higher") ? (
+                      <ArrowUp className="mr-2 h-4 w-4" />
+                    ) : (
+                      <ArrowDown className="mr-2 h-4 w-4" />
+                    )}
+                    {feedback.message}
+                  </span>
                 </div>
-              </>
-            )}
+              )}
+            </div>
           </>
         )}
       </CardContent>

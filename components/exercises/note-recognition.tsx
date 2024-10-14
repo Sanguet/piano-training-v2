@@ -1,6 +1,12 @@
 "use client"
 
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  useMemo,
+} from "react";
 import { Factory, Stave, StaveNote } from "vexflow";
 import * as Tone from "tone";
 import { Button } from "@/components/ui/button";
@@ -212,6 +218,18 @@ const NoteRecognition: React.FC<NoteRecognitionProps> = ({
     };
   }, [isExerciseActive, countdown, onExerciseComplete]);
 
+  const handleNotePlay = useCallback(
+    (note: string) => {
+      checkAnswer(note);
+    },
+    [checkAnswer]
+  );
+
+  const memoizedVirtualPiano = useMemo(
+    () => <VirtualPiano onNotePlay={handleNotePlay} />,
+    [handleNotePlay]
+  );
+
   return (
     <Card className="w-full max-w-3xl mx-auto">
       <CardHeader>
@@ -259,7 +277,7 @@ const NoteRecognition: React.FC<NoteRecognitionProps> = ({
                   <Button onClick={playNote} className="w-full mb-4">
                     Play Note
                   </Button>
-                  <VirtualPiano onNotePlay={checkAnswer} />
+                  {memoizedVirtualPiano}
                 </div>
                 <p className="text-center text-lg font-semibold">
                   Score: {score} | Wrong Answers: {wrongAnswers}

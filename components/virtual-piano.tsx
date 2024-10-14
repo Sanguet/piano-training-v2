@@ -25,7 +25,7 @@ interface VirtualPianoProps {
 
 export function VirtualPiano({ onNotePlay }: VirtualPianoProps) {
   const [midiEnabled, setMidiEnabled] = useState(false);
-  const [pressedKey, setPressedKey] = useState<string | null>(null);
+  const [pressedKeys, setPressedKeys] = useState<Set<string>>(new Set());
   const onNotePlayRef = useRef(onNotePlay);
 
   useEffect(() => {
@@ -37,8 +37,14 @@ export function VirtualPiano({ onNotePlay }: VirtualPianoProps) {
       if (typeof onNotePlayRef.current === "function") {
         onNotePlayRef.current(note, source);
       }
-      setPressedKey(note);
-      setTimeout(() => setPressedKey(null), 200); // Reset after 200ms
+      setPressedKeys((prev) => new Set(prev).add(note));
+      setTimeout(() => {
+        setPressedKeys((prev) => {
+          const newSet = new Set(prev);
+          newSet.delete(note);
+          return newSet;
+        });
+      }, 200); // Reset after 200ms
     },
     []
   );
@@ -46,22 +52,29 @@ export function VirtualPiano({ onNotePlay }: VirtualPianoProps) {
   useEffect(() => {
     let midiInputs: Input[] = [];
 
-    // Enable WebMidi
-    WebMidi.enable()
-      .then(() => {
+    const enableWebMidi = async () => {
+      try {
+        await WebMidi.enable({ sysex: true });
         console.log("WebMidi enabled!");
         setMidiEnabled(true);
 
-        // Listen to all MIDI inputs
         midiInputs = WebMidi.inputs;
         midiInputs.forEach((input) => {
           input.addListener("noteon", (e: NoteMessageEvent) => {
-            const noteName = e.note.name;
-            handleNotePlay(noteName, "midi");
+            if (e.note && e.note.name) {
+              const noteName = e.note.name;
+              const fullNoteName = `${noteName}${e.note.accidental || ""}`;
+              handleNotePlay(fullNoteName, "midi");
+            }
           });
         });
-      })
-      .catch((err) => console.log("WebMidi could not be enabled.", err));
+      } catch (err) {
+        console.error("WebMidi could not be enabled.", err);
+        setMidiEnabled(false);
+      }
+    };
+
+    enableWebMidi();
 
     // Cleanup function
     return () => {
@@ -83,7 +96,7 @@ export function VirtualPiano({ onNotePlay }: VirtualPianoProps) {
             } border border-gray-300 ${
               color === "black" ? "relative -mx-6 z-10 h-28" : ""
             } flex items-end justify-center pb-2 ${
-              pressedKey === note ? "bg-blue-300" : ""
+              pressedKeys.has(note) ? "bg-blue-300" : ""
             } transition-colors duration-200`}
             onClick={() => handleNotePlay(note, "click")}
           >
@@ -97,8 +110,12 @@ export function VirtualPiano({ onNotePlay }: VirtualPianoProps) {
           </Button>
         ))}
       </div>
-      {midiEnabled && (
+      {midiEnabled ? (
         <p className="text-center text-green-600">MIDI keyboard connected</p>
+      ) : (
+        <p className="text-center text-yellow-600">
+          MIDI keyboard not detected
+        </p>
       )}
     </div>
   );

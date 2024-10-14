@@ -51,6 +51,9 @@ const NoteRecognition: React.FC<NoteRecognitionProps> = ({
   const scoreRef = useRef<number>(score);
   const wrongAnswersRef = useRef<number>(wrongAnswers);
 
+  const lastAnswerTimeRef = useRef<number>(0);
+  const DEBOUNCE_TIME = 300; // 300ms debounce time
+
   useEffect(() => {
     scoreRef.current = score;
   }, [score]);
@@ -106,29 +109,6 @@ const NoteRecognition: React.FC<NoteRecognitionProps> = ({
     synth.triggerAttackRelease(currentNote, "0.2");
   }, [currentNote]);
 
-  const checkAnswer = useCallback(
-    (guessedNote: string) => {
-      if (!isExerciseActive || countdown > 0) return;
-
-      const currentNoteIndex = "CDEFGAB".indexOf(currentNote[0]);
-      const guessedNoteIndex = "CDEFGAB".indexOf(guessedNote[0]);
-
-      if (guessedNote === currentNote[0]) {
-        setScore((prevScore) => prevScore + 1);
-        setFeedback({ status: "correct", message: "Correct! Well done!" });
-        setCurrentNote(getRandomNote());
-      } else {
-        setWrongAnswers((prev) => prev + 1);
-        const hint = guessedNoteIndex < currentNoteIndex ? "higher" : "lower";
-        setFeedback({
-          status: "incorrect",
-          message: `Incorrect. Try a ${hint} note.`,
-        });
-      }
-    },
-    [currentNote, isExerciseActive, countdown]
-  );
-
   const getRandomNote = useCallback((): string => {
     const trebleNotes = [
       "C4",
@@ -165,6 +145,36 @@ const NoteRecognition: React.FC<NoteRecognitionProps> = ({
     const notes = clefType === "treble" ? trebleNotes : bassNotes;
     return notes[Math.floor(Math.random() * notes.length)];
   }, [clefType]);
+
+  const checkAnswer = useCallback(
+    (guessedNote: string, source: "midi" | "click") => {
+      if (!isExerciseActive || countdown > 0) return;
+
+      const now = Date.now();
+      if (now - lastAnswerTimeRef.current < DEBOUNCE_TIME) {
+        // Ignore this input if it's too soon after the last one
+        return;
+      }
+      lastAnswerTimeRef.current = now;
+
+      const currentNoteIndex = "CDEFGAB".indexOf(currentNote[0]);
+      const guessedNoteIndex = "CDEFGAB".indexOf(guessedNote[0]);
+
+      if (guessedNote === currentNote[0]) {
+        setScore((prevScore) => prevScore + 1);
+        setFeedback({ status: "correct", message: "Correct! Well done!" });
+        setCurrentNote(getRandomNote());
+      } else {
+        setWrongAnswers((prev) => prev + 1);
+        const hint = guessedNoteIndex < currentNoteIndex ? "higher" : "lower";
+        setFeedback({
+          status: "incorrect",
+          message: `Incorrect. Try a ${hint} note.`,
+        });
+      }
+    },
+    [currentNote, isExerciseActive, countdown, getRandomNote]
+  );
 
   const startExercise = useCallback(() => {
     setIsExerciseActive(true);
@@ -219,8 +229,8 @@ const NoteRecognition: React.FC<NoteRecognitionProps> = ({
   }, [isExerciseActive, countdown, onExerciseComplete]);
 
   const handleNotePlay = useCallback(
-    (note: string) => {
-      checkAnswer(note);
+    (note: string, source: "midi" | "click") => {
+      checkAnswer(note, source);
     },
     [checkAnswer]
   );

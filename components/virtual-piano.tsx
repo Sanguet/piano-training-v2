@@ -20,7 +20,7 @@ const keys = [
 ];
 
 interface VirtualPianoProps {
-  onNotePlay: (note: string) => void;
+  onNotePlay: (note: string, source: "midi" | "click") => void;
 }
 
 export function VirtualPiano({ onNotePlay }: VirtualPianoProps) {
@@ -32,13 +32,16 @@ export function VirtualPiano({ onNotePlay }: VirtualPianoProps) {
     onNotePlayRef.current = onNotePlay;
   }, [onNotePlay]);
 
-  const handleNotePlay = useCallback((note: string) => {
-    if (typeof onNotePlayRef.current === "function") {
-      onNotePlayRef.current(note);
-    }
-    setPressedKey(note);
-    setTimeout(() => setPressedKey(null), 200); // Reset after 200ms
-  }, []);
+  const handleNotePlay = useCallback(
+    (note: string, source: "midi" | "click") => {
+      if (typeof onNotePlayRef.current === "function") {
+        onNotePlayRef.current(note, source);
+      }
+      setPressedKey(note);
+      setTimeout(() => setPressedKey(null), 200); // Reset after 200ms
+    },
+    []
+  );
 
   useEffect(() => {
     let midiInputs: Input[] = [];
@@ -54,7 +57,7 @@ export function VirtualPiano({ onNotePlay }: VirtualPianoProps) {
         midiInputs.forEach((input) => {
           input.addListener("noteon", (e: NoteMessageEvent) => {
             const noteName = e.note.name;
-            handleNotePlay(noteName);
+            handleNotePlay(noteName, "midi");
           });
         });
       })
@@ -82,7 +85,7 @@ export function VirtualPiano({ onNotePlay }: VirtualPianoProps) {
             } flex items-end justify-center pb-2 ${
               pressedKey === note ? "bg-blue-300" : ""
             } transition-colors duration-200`}
-            onClick={() => handleNotePlay(note)}
+            onClick={() => handleNotePlay(note, "click")}
           >
             <span
               className={`text-xs opacity-50 ${

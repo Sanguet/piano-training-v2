@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Factory } from "vexflow";
 import * as Tone from "tone";
 import { Button } from "@/components/ui/button";
@@ -28,53 +28,23 @@ const NoteRecognition: React.FC<NoteRecognitionProps> = ({
   const [countdown, setCountdown] = useState(3);
   const [timer, setTimer] = useState(10); // Changed from 30 to 10 seconds
   const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const countdownRef = useRef<NodeJS.Timeout | null>(null);
 
   const FEEDBACK_DURATION = 2000;
 
-  useEffect(() => {
-    if (isExerciseActive && countdown === 0) {
-      renderNote();
-    }
-  }, [currentNote, isExerciseActive, countdown]);
+  // Refs to hold the latest score and wrongAnswers
+  const scoreRef = useRef<number>(score);
+  const wrongAnswersRef = useRef<number>(wrongAnswers);
 
   useEffect(() => {
-    if (feedback.status) {
-      setIsFeedbackVisible(true);
-      const timer = setTimeout(() => {
-        setIsFeedbackVisible(false);
-      }, FEEDBACK_DURATION - 300);
-      return () => clearTimeout(timer);
-    }
-  }, [feedback]);
+    scoreRef.current = score;
+  }, [score]);
 
   useEffect(() => {
-    let countdownInterval: NodeJS.Timeout | undefined;
-    if (isExerciseActive && countdown > 0) {
-      countdownInterval = setInterval(() => {
-        setCountdown((prev) => prev - 1);
-      }, 1000);
-    } else if (isExerciseActive && countdown === 0) {
-      if (countdownInterval) clearInterval(countdownInterval);
-      if (timerRef.current) clearInterval(timerRef.current);
-      timerRef.current = setInterval(() => {
-        setTimer((prev) => {
-          if (prev <= 1) {
-            if (timerRef.current) clearInterval(timerRef.current);
-            setIsExerciseActive(false);
-            onExerciseComplete(score, wrongAnswers);
-            return 0;
-          }
-          return prev - 1;
-        });
-      }, 1000);
-    }
-    return () => {
-      if (countdownInterval) clearInterval(countdownInterval);
-      if (timerRef.current) clearInterval(timerRef.current);
-    };
-  }, [isExerciseActive, countdown, onExerciseComplete]);
+    wrongAnswersRef.current = wrongAnswers;
+  }, [wrongAnswers]);
 
-  const renderNote = () => {
+  const renderNote = useCallback(() => {
     if (containerRef.current) {
       containerRef.current.innerHTML = "";
       const vf = new Factory({
@@ -85,7 +55,7 @@ const NoteRecognition: React.FC<NoteRecognitionProps> = ({
         },
       });
 
-      const score = vf.EasyScore();
+      const scoreVF = vf.EasyScore();
       const system = vf.System({
         width: 250,
         x: 25,
@@ -94,41 +64,44 @@ const NoteRecognition: React.FC<NoteRecognitionProps> = ({
 
       system
         .addStave({
-          voices: [score.voice(score.notes(currentNote + "/w"))],
+          voices: [scoreVF.voice(scoreVF.notes(currentNote + "/w"))],
         })
         .addClef("treble");
 
       vf.draw();
     }
-  };
+  }, [currentNote]);
 
-  const playNote = async () => {
+  const playNote = useCallback(async () => {
     await Tone.start();
     const synth = new Tone.Synth().toDestination();
     synth.triggerAttackRelease(currentNote, "0.2");
-  };
+  }, [currentNote]);
 
-  const checkAnswer = (guessedNote: string) => {
-    if (!isExerciseActive || countdown > 0) return;
+  const checkAnswer = useCallback(
+    (guessedNote: string) => {
+      if (!isExerciseActive || countdown > 0) return;
 
-    const currentNoteIndex = "CDEFGAB".indexOf(currentNote[0]);
-    const guessedNoteIndex = "CDEFGAB".indexOf(guessedNote[0]);
+      const currentNoteIndex = "CDEFGAB".indexOf(currentNote[0]);
+      const guessedNoteIndex = "CDEFGAB".indexOf(guessedNote[0]);
 
-    if (guessedNote === currentNote[0]) {
-      setScore((prevScore) => prevScore + 1);
-      setFeedback({ status: "correct", message: "Correct! Well done!" });
-      setCurrentNote(getRandomNote());
-    } else {
-      setWrongAnswers((prev) => prev + 1);
-      const hint = guessedNoteIndex < currentNoteIndex ? "higher" : "lower";
-      setFeedback({
-        status: "incorrect",
-        message: `Incorrect. Try a ${hint} note.`,
-      });
-    }
-  };
+      if (guessedNote === currentNote[0]) {
+        setScore((prevScore) => prevScore + 1);
+        setFeedback({ status: "correct", message: "Correct! Well done!" });
+        setCurrentNote(getRandomNote());
+      } else {
+        setWrongAnswers((prev) => prev + 1);
+        const hint = guessedNoteIndex < currentNoteIndex ? "higher" : "lower";
+        setFeedback({
+          status: "incorrect",
+          message: `Incorrect. Try a ${hint} note.`,
+        });
+      }
+    },
+    [currentNote, isExerciseActive, countdown]
+  );
 
-  const getRandomNote = (): string => {
+  const getRandomNote = useCallback((): string => {
     const notes = [
       "C4",
       "D4",
@@ -146,16 +119,59 @@ const NoteRecognition: React.FC<NoteRecognitionProps> = ({
       "B5",
     ];
     return notes[Math.floor(Math.random() * notes.length)];
-  };
+  }, []);
 
-  const startExercise = () => {
+  const startExercise = useCallback(() => {
     setIsExerciseActive(true);
     setCountdown(3);
     setScore(0);
     setWrongAnswers(0);
     setCurrentNote(getRandomNote());
     setTimer(10); // Changed from 30 to 10 seconds
-  };
+  }, [getRandomNote]);
+
+  useEffect(() => {
+    if (isExerciseActive && countdown === 0) {
+      renderNote();
+    }
+  }, [isExerciseActive, countdown, renderNote]);
+
+  useEffect(() => {
+    if (feedback.status) {
+      setIsFeedbackVisible(true);
+      const feedbackTimer = setTimeout(() => {
+        setIsFeedbackVisible(false);
+      }, FEEDBACK_DURATION - 300);
+      return () => clearTimeout(feedbackTimer);
+    }
+  }, [feedback]);
+
+  useEffect(() => {
+    if (isExerciseActive) {
+      if (countdown > 0) {
+        countdownRef.current = setInterval(() => {
+          setCountdown((prev) => prev - 1);
+        }, 1000);
+      } else {
+        timerRef.current = setInterval(() => {
+          setTimer((prev) => {
+            if (prev <= 1) {
+              if (timerRef.current) clearInterval(timerRef.current);
+              setIsExerciseActive(false);
+              onExerciseComplete(scoreRef.current, wrongAnswersRef.current);
+              return 0;
+            }
+            return prev - 1;
+          });
+        }, 1000);
+      }
+    }
+
+    return () => {
+      if (countdownRef.current) clearInterval(countdownRef.current);
+      if (timerRef.current) clearInterval(timerRef.current);
+    };
+  }, [isExerciseActive, countdown, onExerciseComplete]);
 
   return (
     <Card className="w-full max-w-3xl mx-auto">

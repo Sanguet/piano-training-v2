@@ -6,9 +6,9 @@ import { Progress } from '@/components/ui/progress';
 export default function ProgressPage() {
   // In a real app, this data would come from a database or API
   const progressData = {
-    noteRecognition: 75,
-    rhythmAccuracy: 60,
-    sightReading: 40,
+    NoteRecognition: 75,
+    RhythmAccuracy: 60,
+    SightReading: 40,
   };
 
   return (

@@ -69,3 +69,10 @@ This project is open source and available under the [MIT License](LICENSE).
 - [Next.js](https://nextjs.org/)
 - [TypeScript](https://www.typescriptlang.org/)
 - [React](https://reactjs.org/)
+
+
+## Usefull links
+
+- [OpenSheetMusicDisplay Guide](https://github.com/opensheetmusicdisplay/opensheetmusicdisplay/wiki/Getting-Started)
+- [Simple Piano App Created Using React and Tone.js](https://github.com/imagicbell/piano-app)
+- [OSND Audio Player](https://github.com/jimutt/osmd-audio-player/tree/master)

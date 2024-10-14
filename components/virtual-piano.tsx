@@ -4,26 +4,38 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { WebMidi, Input, NoteMessageEvent } from "webmidi";
 
-const keys = [
-  { note: "C", color: "white" },
-  { note: "C#", color: "black" },
-  { note: "D", color: "white" },
-  { note: "D#", color: "black" },
-  { note: "E", color: "white" },
-  { note: "F", color: "white" },
-  { note: "F#", color: "black" },
-  { note: "G", color: "white" },
-  { note: "G#", color: "black" },
-  { note: "A", color: "white" },
-  { note: "A#", color: "black" },
-  { note: "B", color: "white" },
+const FULL_OCTAVE = [
+  "C",
+  "C#",
+  "D",
+  "D#",
+  "E",
+  "F",
+  "F#",
+  "G",
+  "G#",
+  "A",
+  "A#",
+  "B",
 ];
+
+interface Key {
+  note: string;
+  octave: number;
+  color: "white" | "black";
+}
 
 interface VirtualPianoProps {
   onNotePlay: (note: string, source: "midi" | "click") => void;
+  startNote?: string;
+  endNote?: string;
 }
 
-export function VirtualPiano({ onNotePlay }: VirtualPianoProps) {
+export function VirtualPiano({
+  onNotePlay,
+  startNote = "A0",
+  endNote = "C8",
+}: VirtualPianoProps) {
   const [midiEnabled, setMidiEnabled] = useState(false);
   const [pressedKeys, setPressedKeys] = useState<Set<string>>(new Set());
   const onNotePlayRef = useRef(onNotePlay);
@@ -31,6 +43,33 @@ export function VirtualPiano({ onNotePlay }: VirtualPianoProps) {
   useEffect(() => {
     onNotePlayRef.current = onNotePlay;
   }, [onNotePlay]);
+
+  const generateKeys = useCallback((): Key[] => {
+    const keys: Key[] = [];
+    const [startNoteName, startOctave] = startNote.split(/(\d+)/);
+    const [endNoteName, endOctave] = endNote.split(/(\d+)/);
+    let currentOctave = parseInt(startOctave);
+    let startIndex = FULL_OCTAVE.indexOf(startNoteName);
+
+    while (currentOctave <= parseInt(endOctave)) {
+      for (let i = startIndex; i < FULL_OCTAVE.length; i++) {
+        const note = FULL_OCTAVE[i];
+        keys.push({
+          note: `${note}${currentOctave}`,
+          octave: currentOctave,
+          color: note.includes("#") ? "black" : "white",
+        });
+        if (currentOctave === parseInt(endOctave) && note === endNoteName) {
+          return keys;
+        }
+      }
+      currentOctave++;
+      startIndex = 0;
+    }
+    return keys;
+  }, [startNote, endNote]);
+
+  const keys = generateKeys();
 
   const handleNotePlay = useCallback(
     (note: string, source: "midi" | "click") => {
@@ -60,11 +99,19 @@ export function VirtualPiano({ onNotePlay }: VirtualPianoProps) {
 
         midiInputs = WebMidi.inputs;
         midiInputs.forEach((input) => {
-          input.addListener("noteon", (e: NoteMessageEvent) => {
-            if (e.note && e.note.name) {
-              const noteName = e.note.name;
-              const fullNoteName = `${noteName}${e.note.accidental || ""}`;
-              handleNotePlay(fullNoteName, "midi");
+          input.addListener("noteon", "all", (e: NoteMessageEvent) => {
+            try {
+              if (e.note && e.note.name && e.note.octave !== undefined) {
+                const noteName = e.note.name;
+                const fullNoteName = `${noteName}${e.note.accidental || ""}${
+                  e.note.octave
+                }`;
+                handleNotePlay(fullNoteName, "midi");
+              } else {
+                console.warn("Received incomplete MIDI note data:", e);
+              }
+            } catch (error) {
+              console.error("Error processing MIDI note:", error);
             }
           });
         });
@@ -86,15 +133,15 @@ export function VirtualPiano({ onNotePlay }: VirtualPianoProps) {
   }, [handleNotePlay]);
 
   return (
-    <div className="max-w-3xl mx-auto">
-      <div className="flex justify-center mb-4 relative">
+    <div className="max-w-full mx-auto overflow-x-auto">
+      <div className="flex justify-start mb-4 relative">
         {keys.map(({ note, color }) => (
           <Button
             key={note}
-            className={`w-12 h-40 ${
+            className={`w-8 h-32 ${
               color === "white" ? "bg-white" : "bg-black"
             } border border-gray-300 ${
-              color === "black" ? "relative -mx-6 z-10 h-28" : ""
+              color === "black" ? "relative -mx-4 z-10 h-20" : ""
             } flex items-end justify-center pb-2 ${
               pressedKeys.has(note) ? "bg-blue-300" : ""
             } transition-colors duration-200`}

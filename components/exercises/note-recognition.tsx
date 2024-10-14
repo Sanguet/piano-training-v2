@@ -163,15 +163,18 @@ const NoteRecognition: React.FC<NoteRecognitionProps> = ({
       }
       lastAnswerTimeRef.current = now;
 
-      const currentNoteIndex = "CDEFGAB".indexOf(currentNote[0]);
-      const guessedNoteIndex = "CDEFGAB".indexOf(guessedNote[0]);
+      // Extract just the note name (without octave) for comparison
+      const currentNoteName = currentNote.slice(0, -1);
+      const guessedNoteName = guessedNote.slice(0, -1);
 
-      if (guessedNote === currentNote[0]) {
+      if (guessedNoteName === currentNoteName) {
         setScore((prevScore) => prevScore + 1);
         setFeedback({ status: "correct", message: "Correct! Well done!" });
         setCurrentNote(getRandomNote());
       } else {
         setWrongAnswers((prev) => prev + 1);
+        const currentNoteIndex = FULL_OCTAVE.indexOf(currentNoteName);
+        const guessedNoteIndex = FULL_OCTAVE.indexOf(guessedNoteName);
         const hint = guessedNoteIndex < currentNoteIndex ? "higher" : "lower";
         setFeedback({
           status: "incorrect",
@@ -242,12 +245,14 @@ const NoteRecognition: React.FC<NoteRecognitionProps> = ({
   );
 
   const memoizedVirtualPiano = useMemo(
-    () => <VirtualPiano onNotePlay={handleNotePlay} />,
+    () => (
+      <VirtualPiano onNotePlay={handleNotePlay} startNote="C2" endNote="C6" />
+    ),
     [handleNotePlay]
   );
 
   return (
-    <Card className="w-full max-w-3xl mx-auto">
+    <Card className="w-full max-w-5xl mx-auto">
       <CardHeader>
         <CardTitle>
           Note Recognition -{" "}
@@ -289,11 +294,13 @@ const NoteRecognition: React.FC<NoteRecognitionProps> = ({
                   id="vexflow-container"
                   className="flex justify-center overflow-x-auto"
                 ></div>
-                <div className="max-w-[384px] mx-auto">
-                  <Button onClick={playNote} className="w-full mb-4">
-                    Play Note
-                  </Button>
-                  {memoizedVirtualPiano}
+                <div className="w-full overflow-x-auto py-4">
+                  <div className="min-w-[700px]">
+                    <Button onClick={playNote} className="w-full mb-4">
+                      Play Note
+                    </Button>
+                    {memoizedVirtualPiano}
+                  </div>
                 </div>
                 <p className="text-center text-lg font-semibold">
                   Score: {score} | Wrong Answers: {wrongAnswers}
@@ -332,5 +339,20 @@ const NoteRecognition: React.FC<NoteRecognitionProps> = ({
     </Card>
   );
 };
+
+const FULL_OCTAVE = [
+  "C",
+  "C#",
+  "D",
+  "D#",
+  "E",
+  "F",
+  "F#",
+  "G",
+  "G#",
+  "A",
+  "A#",
+  "B",
+];
 
 export default NoteRecognition;

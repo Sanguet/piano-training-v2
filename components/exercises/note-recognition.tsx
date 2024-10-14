@@ -143,8 +143,14 @@ const NoteRecognition: React.FC<NoteRecognitionProps> = ({
       "B3",
     ];
     const notes = clefType === "treble" ? trebleNotes : bassNotes;
-    return notes[Math.floor(Math.random() * notes.length)];
-  }, [clefType]);
+
+    let newNote: string;
+    do {
+      newNote = notes[Math.floor(Math.random() * notes.length)];
+    } while (newNote === currentNote);
+
+    return newNote;
+  }, [clefType, currentNote]);
 
   const checkAnswer = useCallback(
     (guessedNote: string, source: "midi" | "click") => {

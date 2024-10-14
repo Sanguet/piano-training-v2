@@ -1,16 +1,25 @@
 "use client"
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { Factory } from "vexflow";
+import { Factory, Stave, StaveNote } from "vexflow";
 import * as Tone from "tone";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { VirtualPiano } from "@/components/virtual-piano";
 import { CheckCircle2, XCircle, ArrowUp, ArrowDown } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 interface NoteRecognitionProps {
   onExerciseComplete: (correctAnswers: number, wrongAnswers: number) => void;
 }
+
+type ClefType = "treble" | "bass";
 
 const NoteRecognition: React.FC<NoteRecognitionProps> = ({
   onExerciseComplete,
@@ -26,13 +35,13 @@ const NoteRecognition: React.FC<NoteRecognitionProps> = ({
   const [isFeedbackVisible, setIsFeedbackVisible] = useState(false);
   const [isExerciseActive, setIsExerciseActive] = useState(false);
   const [countdown, setCountdown] = useState(3);
-  const [timer, setTimer] = useState(10); // Changed from 30 to 10 seconds
+  const [timer, setTimer] = useState(10);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const countdownRef = useRef<NodeJS.Timeout | null>(null);
+  const [clefType, setClefType] = useState<ClefType>("treble");
 
   const FEEDBACK_DURATION = 2000;
 
-  // Refs to hold the latest score and wrongAnswers
   const scoreRef = useRef<number>(score);
   const wrongAnswersRef = useRef<number>(wrongAnswers);
 
@@ -50,27 +59,40 @@ const NoteRecognition: React.FC<NoteRecognitionProps> = ({
       const vf = new Factory({
         renderer: {
           elementId: containerRef.current.id,
-          width: 300,
+          width: 400,
           height: 160,
         },
       });
 
-      const scoreVF = vf.EasyScore();
+      const context = vf.getContext();
       const system = vf.System({
-        width: 250,
+        width: 350,
         x: 25,
         y: 40,
       });
 
+      // Convert the note format
+      const [noteName, octave] = currentNote.split("");
+      const vexflowNote = `${noteName.toLowerCase()}/${octave}`;
+
       system
         .addStave({
-          voices: [scoreVF.voice(scoreVF.notes(currentNote + "/w"))],
+          voices: [
+            vf.Voice().addTickables([
+              new StaveNote({
+                keys: [vexflowNote],
+                duration: "w",
+                clef: clefType,
+              }),
+            ]),
+          ],
         })
-        .addClef("treble");
+        .addClef(clefType)
+        .addTimeSignature("4/4");
 
       vf.draw();
     }
-  }, [currentNote]);
+  }, [currentNote, clefType]);
 
   const playNote = useCallback(async () => {
     await Tone.start();
@@ -102,7 +124,7 @@ const NoteRecognition: React.FC<NoteRecognitionProps> = ({
   );
 
   const getRandomNote = useCallback((): string => {
-    const notes = [
+    const trebleNotes = [
       "C4",
       "D4",
       "E4",
@@ -118,8 +140,25 @@ const NoteRecognition: React.FC<NoteRecognitionProps> = ({
       "A5",
       "B5",
     ];
+    const bassNotes = [
+      "C2",
+      "D2",
+      "E2",
+      "F2",
+      "G2",
+      "A2",
+      "B2",
+      "C3",
+      "D3",
+      "E3",
+      "F3",
+      "G3",
+      "A3",
+      "B3",
+    ];
+    const notes = clefType === "treble" ? trebleNotes : bassNotes;
     return notes[Math.floor(Math.random() * notes.length)];
-  }, []);
+  }, [clefType]);
 
   const startExercise = useCallback(() => {
     setIsExerciseActive(true);
@@ -127,7 +166,7 @@ const NoteRecognition: React.FC<NoteRecognitionProps> = ({
     setScore(0);
     setWrongAnswers(0);
     setCurrentNote(getRandomNote());
-    setTimer(10); // Changed from 30 to 10 seconds
+    setTimer(10);
   }, [getRandomNote]);
 
   useEffect(() => {
@@ -176,62 +215,83 @@ const NoteRecognition: React.FC<NoteRecognitionProps> = ({
   return (
     <Card className="w-full max-w-3xl mx-auto">
       <CardHeader>
-        <CardTitle>Note Recognition</CardTitle>
+        <CardTitle>
+          Note Recognition -{" "}
+          {clefType === "treble" ? "Treble Clef" : "Bass Clef"}
+        </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
         {!isExerciseActive ? (
-          <Button onClick={startExercise} className="w-full">
-            Start Exercise
-          </Button>
+          <>
+            <Select
+              value={clefType}
+              onValueChange={(value: ClefType) => setClefType(value)}
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Select clef type" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="treble">Treble Clef</SelectItem>
+                <SelectItem value="bass">Bass Clef</SelectItem>
+              </SelectContent>
+            </Select>
+            <Button onClick={startExercise} className="w-full">
+              Start Exercise
+            </Button>
+          </>
         ) : countdown > 0 ? (
           <div className="text-center text-2xl font-bold">
             Starting in {countdown}...
           </div>
         ) : (
           <>
-            <div className="text-center text-xl font-semibold">
-              Time remaining: {timer} seconds
-            </div>
-            <div
-              ref={containerRef}
-              id="vexflow-container"
-              className="flex justify-center"
-            ></div>
-            <div className="max-w-[384px] mx-auto">
-              <Button onClick={playNote} className="w-full mb-4">
-                Play Note
-              </Button>
-              <VirtualPiano onNotePlay={checkAnswer} />
-            </div>
-            <p className="text-center text-lg font-semibold">
-              Score: {score} | Wrong Answers: {wrongAnswers}
-            </p>
-            <div
-              className={`transition-opacity duration-300 ${
-                isFeedbackVisible ? "opacity-100" : "opacity-0"
-              }`}
-            >
-              {feedback.status && (
+            {isExerciseActive && countdown === 0 && (
+              <>
+                <div className="text-center text-xl font-semibold">
+                  Time remaining: {timer} seconds
+                </div>
                 <div
-                  className={`text-center p-2 rounded ${
-                    feedback.status === "correct"
-                      ? "bg-green-100 text-green-800"
-                      : "bg-red-100 text-red-800"
+                  ref={containerRef}
+                  id="vexflow-container"
+                  className="flex justify-center overflow-x-auto"
+                ></div>
+                <div className="max-w-[384px] mx-auto">
+                  <Button onClick={playNote} className="w-full mb-4">
+                    Play Note
+                  </Button>
+                  <VirtualPiano onNotePlay={checkAnswer} />
+                </div>
+                <p className="text-center text-lg font-semibold">
+                  Score: {score} | Wrong Answers: {wrongAnswers}
+                </p>
+                <div
+                  className={`transition-opacity duration-300 ${
+                    isFeedbackVisible ? "opacity-100" : "opacity-0"
                   }`}
                 >
-                  <span className="flex items-center justify-center">
-                    {feedback.status === "correct" ? (
-                      <CheckCircle2 className="mr-2 h-4 w-4" />
-                    ) : feedback.message.includes("higher") ? (
-                      <ArrowUp className="mr-2 h-4 w-4" />
-                    ) : (
-                      <ArrowDown className="mr-2 h-4 w-4" />
-                    )}
-                    {feedback.message}
-                  </span>
+                  {feedback.status && (
+                    <div
+                      className={`text-center p-2 rounded ${
+                        feedback.status === "correct"
+                          ? "bg-green-100 text-green-800"
+                          : "bg-red-100 text-red-800"
+                      }`}
+                    >
+                      <span className="flex items-center justify-center">
+                        {feedback.status === "correct" ? (
+                          <CheckCircle2 className="mr-2 h-4 w-4" />
+                        ) : feedback.message.includes("higher") ? (
+                          <ArrowUp className="mr-2 h-4 w-4" />
+                        ) : (
+                          <ArrowDown className="mr-2 h-4 w-4" />
+                        )}
+                        {feedback.message}
+                      </span>
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
+              </>
+            )}
           </>
         )}
       </CardContent>
